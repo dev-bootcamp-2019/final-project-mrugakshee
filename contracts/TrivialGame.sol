@@ -10,7 +10,9 @@ contract TrivialGame {
 
     ///////////////// Events
 
-    // @TODO - emit winner
+    event Winner(
+        address winner
+    );
 
     event GamePlayed(
         address playerOne,
@@ -42,10 +44,13 @@ contract TrivialGame {
     }
 
     // This is where the actual game logic takes place
-    function play() 
+    function play(address _playerOne, address _playerTwo) 
     public
     {
+        playerOne = _playerOne;
+        playerTwo = _playerTwo;
         winner = playerOne;
         emit GamePlayed(playerOne, playerTwo);
+        emit Winner(winner);
     }
 }

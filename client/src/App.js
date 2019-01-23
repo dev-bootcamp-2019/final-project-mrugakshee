@@ -22,6 +22,8 @@ class App extends Component {
       contract: null, 
       numberOfPlayers: null, // init
       maxPlayers: null, // init
+      totalMoneyCollected: 0, //init
+      registrationFee: 0,
       registrants: [] // init
     };
 
@@ -83,12 +85,25 @@ class App extends Component {
       });
     });
 
-    // @TODO - Init the totalMoneyCollected variable
-    // @TODO - Init the registrationFee variable
+    // Init the registrationFee variable
+    contract.methods.registrationFee().call((err, res) => {
+      this.setState({
+        registrationFee: res
+      });
+    });
+
+       // Init the totalMoneyCollected variable
+       contract.methods.totalMoneyCollected().call((err, res) => {
+        this.setState({
+          totalMoneyCollected: res
+        });
+      });
+
 
     ////////////////////////////////////////////////////////////////////
 
     // Init Event Listeners
+
     // Event listener for ConfirmRegistrant
     contract.events.ConfirmRegistrant((err, res) => {
       let newRegistrants = this.state.registrants;
@@ -99,8 +114,17 @@ class App extends Component {
       });
     });
 
-    // @TODO - Test numberOfPlayers
-    // @TODO - Event Listener for MoneyCollected
+    // @TODO - Test numberOfPlayers <- After recompiling and remigrating the contract
+    
+    // Event Listener for MoneyCollected
+    contract.events.MoneyCollected((err, res) => {
+      let totalMoney = this.state.totalMoneyCollected;
+      totalMoney += res.returnValues.value;
+      this.setState({
+        totalMoneyCollected: totalMoney
+      });
+    });
+
     // @TODO - Event Listener for CreateGame
     // @TODO - Event Listener for StartTournamnet
   };
@@ -115,10 +139,12 @@ class App extends Component {
         newRegistrants.push(events[i].returnValues.registrantAddress);
       }
       this.setState({
-        registrants: newRegistrants
+        registrants: newRegistrants,
       });
     });
-  } 
+  }
+
+  
 
   render() {
     if (!this.state.web3) {

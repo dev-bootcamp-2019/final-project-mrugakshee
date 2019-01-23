@@ -26,11 +26,11 @@ class Tournament extends Component {
             let newGames = this.state.games;
             newGames[gameID] = G;
             this.setState({ games: newGames })
-            console.log("res in fetchGame")
-            console.log(this.state.games[gameID])
-            console.log("err in fetchGame")
-            console.log(err)
         });
+    }
+
+    renderGame = async () => {
+        
     }
 
     render() {
@@ -38,24 +38,27 @@ class Tournament extends Component {
         //  make there be a button for each game, which will call a "play" function eventually ... 
         //  render each player
         // After the play button is pressed, the winner for the game should show up
-        console.log('----- Tournament()');
-        console.log('...props');
-        console.log(this.props);
-        console.log('...state');
-        console.log(this.state);
         return (
-            Object.keys(this.state.games).map((index, game) => {
-                return (
-                    <div key={this.state.games[index].address}>
-                        < Game
-                            gameContract={ this.state.games[index] }
-                        />
-                    </div>
-                )
-            })
+            <div></div>
+            
         )
+
+        // gameContract={ this.state.games[index] }
+        // { ...this.props }
     }
 }
 
-
 export default Tournament;
+
+
+// Object.keys(this.state.games).map((index, game) => {
+//     return (
+//         (this.props.numberOfPlayers / 2 > index) && <div key={index}>
+//             <h3>Game: {index + 1} </h3>
+//             < Game { ...this.props }
+//             gameContract={ this.state.games[index] }
+//             index={index}
+//             />
+//         </div>
+//     )
+// })

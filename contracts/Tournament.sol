@@ -24,14 +24,14 @@ contract Tournament {
     // Set amount for registration
     uint public registrationFee;
 
-    uint public TotalMoneyCollected;
+    uint public totalMoneyCollected;
     
     ///////////////// Functions
     
     constructor () public {
         host = msg.sender;
         registrationFee = 1000000000000000000;
-        TotalMoneyCollected = 0;
+        totalMoneyCollected = 0;
 
         // Tournament Initalization
         numberOfPlayers = 0;
@@ -49,8 +49,8 @@ contract Tournament {
     {
         numberOfPlayers += 1;
         registrants[msg.sender] = true;
-        TotalMoneyCollected += msg.value;
-        emit MoneyCollected(TotalMoneyCollected);
+        totalMoneyCollected += msg.value;
+        emit MoneyCollected(totalMoneyCollected);
         emit ConfirmRegistrant(msg.sender);
     }
 
@@ -81,5 +81,5 @@ contract Tournament {
     modifier checkAmountTransferred() {require (msg.value == registrationFee, "Insuffcient funds transferred"); _;}
     modifier onlyHost() {require (msg.sender == host, "Only host can use this function"); _;}
     modifier checkPlayerCap() {require (numberOfPlayers < maxPlayers, "Max players reached"); _;}
-    // @TODO - Restrict the same player from registering twice
+    // @TODO - Restrict the same player from registering twice - for later
 }

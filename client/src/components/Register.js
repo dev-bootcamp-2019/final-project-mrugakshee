@@ -6,9 +6,7 @@ class Register extends Component {
     constructor (props) {
         super(props);
         this.state = {
-            totalAmount: 0,
             inputValue: '',
-            registrants: [],
             start: false,
             reqText: ''
         };
@@ -16,8 +14,6 @@ class Register extends Component {
         this.updateInput = this.updateInput.bind(this);
         this.startTournament = this.startTournament.bind(this);
     }
-
-    // @TODO - clean up state variables, for eg, get rid of totalAmount
 
     updateInput = (event) => {
         this.setState({ inputValue: event.target.value });
@@ -30,12 +26,9 @@ class Register extends Component {
 
         // 1000000000000000000 WEI = 1 Ether
         const response = await contract.methods.register().send(
-            // @TODO - change value to registrationFee
-            { from: this.state.inputValue || contract.defaultAccount, gas: 600000, value: 1000000000000000000 }
+            { from: this.state.inputValue || contract.defaultAccount, gas: 600000, value: this.props.registrationFee }
         );
 
-        console.log('RESPONSE FROM CLICK');
-        console.log(response);
     }
 
     startTournament = async () =>{
@@ -45,7 +38,7 @@ class Register extends Component {
             this.setState({reqText: "Even number of players required to start tournament."});
         } else {
             await this.props.contract.methods.startTournament().send(
-                { from: this.props.contract.defaultAccount, gas: 6000000 }
+                { from: this.props.contract.defaultAccount}
             );
             this.setState({start: true});
         }
@@ -54,7 +47,8 @@ class Register extends Component {
     render() {
         return (
             <div>
-                <h1>Tournament X</h1>
+                <h1>Total Prize money: {this.props.web3.utils.fromWei(this.props.totalMoneyCollected.toString(), 'ether')} ether</h1>
+                <h1>Registration Fee: {this.props.web3.utils.fromWei(this.props.registrationFee.toString(), 'ether')} ether </h1>
 
                 <div>
                     <label>Account: </label>
@@ -68,7 +62,6 @@ class Register extends Component {
                     />
                     <button onClick={this.register}>Register</button>
                     
-                    <h3>Amount received: {this.state.totalAmount}</h3>
                     <h3>Max Players: {this.props.maxPlayers}</h3>
                     <h3>Total Players: {this.props.numberOfPlayers}</h3>
                 </div>
