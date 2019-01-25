@@ -1,43 +1,64 @@
 import React, { Component } from 'react';
-import Tournament from './Tournament';
+import { Card, Row, Col } from 'antd';
+import 'antd/dist/antd.css'
 
 class Game extends Component {
     constructor(props) {
         super(props)
         this.state = {
-            LevelOne: this.props.numberOfPlayers / 2,
+            winner: '',
+            index: this.props.index,
             winner: ''
         }
         this.playGame = this.playGame.bind(this);
-        console.log(this.state.gameContract)
-        console.log("this is props in game")
-        console.log(this.props)
+        this.setUpGame = this.setUpGame.bind(this);
     }
 
-    playGame = async () => {
-        let p1 = this.props.registrants[0];
-        let p2 = this.props.registrants[1];
-        const res = await this.props.gameContract.methods.play(p1, p2).send(
-            { from: this.props.contract.defaultAccount }
-        );
-        console.log("this is response in Game");
-        console.log(res);
-        this.setState({
-            winner: res.events.Winner.returnValues.winner
-        })
+    componentWillMount() {
+        this.props.game.game.events.Winner((err, res) => {
+            this.setState({
+                winner: res.returnValues.winner
+            });
+        });
     }
 
-    render () {
-        // @TODO - retrieve players from gameContract
-        // @TODO - create "Play Game" button
-        //  @TODO - Retrieve and display winner(from an event)
-        // {this.props.gameContract._address}
-
+    setUpGame() {
+        let p1 = this.props.game.p1;
+        let p2 = this.props.game.p2;
 
         return (
-            <div>       
-                <button onClick={this.playGame}>Play game</button>
-                <h1>Winner is {this.state.winner}</h1>
+            <div>
+                Player: {p1} VS. Player: {this.props.game.p2}
+                <div>
+                    <button onClick={() => this.playGame(p1, p2)}>Play game</button>
+                </div>
+            </div>
+        )
+    }
+
+    playGame(p1, p2) {
+        this.props.game.game.methods.play(p1, p2).send(
+            { from: this.props.contract.defaultAccount }
+        );
+    }
+
+    render() {
+
+        return (
+            <div>
+                <Row>
+                    <Col span={16}>
+                        <Card bordered={true}>
+                            <h3> Game {this.state.index + 1}</h3>
+                            {this.setUpGame()}
+                            {this.state.winner !== '' &&
+                                <div>
+                                    <p>Winner is {this.state.winner}</p>
+                                </div>
+                            }
+                        </Card>
+                    </Col>
+                </Row>
             </div>
         );
     }

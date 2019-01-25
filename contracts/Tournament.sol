@@ -35,7 +35,7 @@ contract Tournament {
 
         // Tournament Initalization
         numberOfPlayers = 0;
-        maxPlayers = 4;
+        maxPlayers = 16;
         winner = address(0);
     }
 
@@ -58,7 +58,6 @@ contract Tournament {
     public
     onlyHost
     {
-        // @TODO - create tournament bracket for players
         for (uint i = 0; i < numberOfPlayers - 1; i++) {
             games.push(new TrivialGame());
         }

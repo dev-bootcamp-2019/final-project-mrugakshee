@@ -10,24 +10,24 @@ import { Layout, Row, Col } from 'antd';
 import 'antd/dist/antd.css'
 
 const { Content } = Layout;
-
-
 class App extends Component {
 
   constructor(props) {
     super(props);
     this.state = {
-      web3: null, 
-      accounts: null, 
-      contract: null, 
-      numberOfPlayers: null, // init
-      maxPlayers: null, // init
+      web3: null,
+      accounts: null,
+      contract: null,
+      numberOfPlayers: 0, // init
+      maxPlayers: 0, // init
       totalMoneyCollected: 0, //init
-      registrationFee: 0,
-      registrants: [] // init
+      registrationFee: 0, // init
+      registrants: [], // init
+      events: [] // Prevent double firing events
     };
 
     this.initRegistrants = this.initRegistrants.bind(this);
+    this.handleEvent = this.handleEvent.bind(this);
   }
 
   componentWillMount = async () => {
@@ -65,17 +65,15 @@ class App extends Component {
 
   init = async () => {
     console.log('----- init()');
-    const { accounts, contract } = this.state;
+    const { contract } = this.state;
 
     this.initRegistrants();
-
-    // Init Values
 
     // Init the numberOfPlayers variable
     contract.methods.numberOfPlayers().call((err, res) => {
       this.setState({
         numberOfPlayers: res
-      });      
+      });
     });
 
     // Init the maxPlayers variable
@@ -92,12 +90,12 @@ class App extends Component {
       });
     });
 
-       // Init the totalMoneyCollected variable
-       contract.methods.totalMoneyCollected().call((err, res) => {
-        this.setState({
-          totalMoneyCollected: res
-        });
+    //  Init the totalMoneyCollected variable
+    contract.methods.totalMoneyCollected().call((err, res) => {
+      this.setState({
+        totalMoneyCollected: res
       });
+    });
 
 
     ////////////////////////////////////////////////////////////////////
@@ -106,28 +104,46 @@ class App extends Component {
 
     // Event listener for ConfirmRegistrant
     contract.events.ConfirmRegistrant((err, res) => {
-      let newRegistrants = this.state.registrants;
-      newRegistrants.push(res.returnValues.registrantAddress);
-      this.setState({
-        registrants: newRegistrants,
-        numberOfPlayers: this.state.numberOfPlayers++
-      });
+      if (err) {
+        // @TODO - Handle Error
+      } else {
+        if (!this.state.events[res.id]) {
+          let newRegistrants = this.state.registrants;
+          newRegistrants.push(res.returnValues.registrantAddress);
+          this.handleEvent(res.id);
+          this.setState({
+            registrants: newRegistrants,
+            numberOfPlayers: parseInt(this.state.numberOfPlayers) + 1
+          });
+        }
+      }
     });
 
-    // @TODO - Test numberOfPlayers <- After recompiling and remigrating the contract
-    
     // Event Listener for MoneyCollected
     contract.events.MoneyCollected((err, res) => {
-      let totalMoney = this.state.totalMoneyCollected;
-      totalMoney += res.returnValues.value;
-      this.setState({
-        totalMoneyCollected: totalMoney
-      });
+      if (err) {
+        // @TODO - Handle Error
+      } else {
+        if (!this.state.events[res.id]) {
+          this.handleEvent(res.id);
+          this.setState({
+            totalMoneyCollected: res.returnValues.value
+          });
+        }
+      }
     });
 
     // @TODO - Event Listener for CreateGame
     // @TODO - Event Listener for StartTournamnet
   };
+
+  handleEvent(id) {
+    let newEvents = this.state.events;
+    newEvents[id] = true;
+    this.setState({
+      events: newEvents
+    });
+  }
 
   initRegistrants = () => {
     this.state.contract.getPastEvents('ConfirmRegistrant', {
@@ -144,7 +160,7 @@ class App extends Component {
     });
   }
 
-  
+
 
   render() {
     if (!this.state.web3) {
@@ -156,10 +172,10 @@ class App extends Component {
           <Content>
             <Row>
               <Col span={16}>
-                <Register { ... this.state } />
+                <Register {... this.state} />
               </Col>
               <Col span={8}>
-                <Registered { ... this.state } />
+                <Registered {... this.state} />
               </Col>
             </Row>
           </Content>
