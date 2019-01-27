@@ -1,5 +1,7 @@
 // From Truffle Unbox React
 const path = require("path");
+var HDWalletProvider = require("truffle-hdwallet-provider");
+const MNEMONIC = 'sauce owner welcome risk actor visa diary scrub topic steak decade stock';
 
 /**
  * Use this file to configure your truffle project. It's seeded with some
@@ -61,6 +63,13 @@ module.exports = {
      gas: 6000000,
      gasPrice: 20000000000
     },
+    ropesten: {
+      provider: function() {
+        return new HDWalletProvider(MNEMONIC, "https://ropsten.infura.io/v3/e70ff3e689a84c5c8430f6109ce7579a")
+      },
+      network_id: 3,
+      gas: 4000000
+    }
 
     // Another network with more advanced options...
     // advanced: {

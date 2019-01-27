@@ -1,0 +1,13 @@
+.game {
+    p {
+        text-overflow: ellipsis;
+        white-space: nowrap;
+        overflow: hidden;
+    }
+
+    .gameWinner {
+        margin: 8px;
+        padding: 2px;
+        background-color: #b7f7a8;
+    }
+}

@@ -1,0 +1,18 @@
+.registered {
+    background-color: white;
+    height: 100vh !important;
+    margin: 0px 0px 0px 10px !important;
+
+    .registeredAddress {
+        font-size: 1em;
+        padding: 2px;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+        overflow: hidden;
+        .index {
+            font-size: .8em;
+            font-weight: bold;
+        }
+    }
+}
+

@@ -1,8 +1,10 @@
 import React, { Component } from 'react';
-import TrivialGameContract from '../contracts/TrivialGame.json';
-import Game from './Game';
+import TrivialGameContract from '../../contracts/TrivialGame.json';
+import Game from '../Game';
 
-import { Row, Col } from 'antd';
+import { toEther, EMPTY_ADDRESS } from '../../utils/web3helper';
+
+import { Row, Col, Button } from 'antd';
 import _ from 'lodash';
 
 class Tournament extends Component {
@@ -21,10 +23,9 @@ class Tournament extends Component {
             winnerStack: [],
             events: [], // Prevent double firing events
             tournamentWinner: '',
-            showWinner: false,
-            prizeMoney: 0,
-            hostRake: 0
+            showWinner: false
         }
+        this.checkGamesInBracket = this.checkGamesInBracket.bind(this);
         this.fetchGame = this.fetchGame.bind(this);
         this.findMod = this.findMod.bind(this);
         this.createBracket = this.createBracket.bind(this);
@@ -37,21 +38,73 @@ class Tournament extends Component {
         this.renderBracket = this.renderBracket.bind(this);
     }
 
-    componentWillMount = async () => {
+    componentWillMount = () => {
         let tempStack = this.state.stack;
         for (let j = this.props.numberOfPlayers - 1; j >= 0; j--) {
             tempStack.push(j);
         }
-        this.setState({ stack: tempStack });
 
-        for (let i = 0; i < this.props.numberOfPlayers - 1; i++) {
-            await this.fetchGame(i);
-        }
-        let returnedMod = await this.findMod();
-        await this.setState({ mod: returnedMod });
-        this.createBracket();
-        this.insertPlayers();
-        this.initWinnerEventListeners();
+        this.setState({ stack: tempStack }, async () => {
+            for (let i = 0; i < this.props.numberOfPlayers - 1; i++) {
+                await this.fetchGame(i);
+            }
+
+            let returnedMod = await this.findMod();
+            this.setState({ mod: returnedMod }, async () => {
+                await this.createBracket();
+                this.insertPlayers();
+                this.initWinnerEventListeners();
+            });
+        });
+    }
+
+    checkGamesInBracket = () => {
+        this.state.bracket.map((game, index) => {
+            game.game.methods.playerOne().call((err, res) => {
+                if (res !== EMPTY_ADDRESS) {
+                    let newBracket = this.state.bracket;
+                    newBracket[index].p1 = res;
+                    this.setState({
+                        bracket: newBracket
+                    });
+                }
+            });
+
+            game.game.methods.playerTwo().call((err, res) => {
+                if (res !== EMPTY_ADDRESS) {
+                    let newBracket = this.state.bracket;
+                    newBracket[index].p2 = res;
+                    this.setState({
+                        bracket: newBracket
+                    });
+                }
+            });
+
+            game.game.methods.winner().call((err, res) => {
+                if (res !== EMPTY_ADDRESS) {
+                    let newBracket = this.state.bracket;
+                    let { tournamentWinner, showWinner, currentTier, winnerStack } = this.state;
+
+                    newBracket[index].winner = res;
+
+                    // The last game has been played and has a winner. The Tournament is Over.
+                    if (index === this.state.bracket.length - 1) {
+                        tournamentWinner = res;
+                        currentTier = game.tier;
+                        showWinner = true;
+                    } else if (newBracket[index].tier === currentTier) {
+                        winnerStack.push(this.props.registrants.indexOf(res));
+                    }
+
+                    this.setState({
+                        bracket: newBracket,
+                        tournamentWinner,
+                        currentTier,
+                        showWinner
+                    }, this.checkIncrementTier);
+                }
+            });
+        });
     }
 
     fetchGame = async (gameID) => {
@@ -69,7 +122,6 @@ class Tournament extends Component {
 
     initWinnerEventListeners() {
         for (let i = 0; i < this.state.bracket.length; i++) {
-            // @TODO - Fix the missing contract
             this.state.bracket[i].game.events.Winner((err, res) => {
                 if (!this.state.events[res.id]) {
                     this.handleEvent(res.id, () => {
@@ -86,6 +138,7 @@ class Tournament extends Component {
                                 winnerStack: newWinnerStack
                             }, this.checkIncrementTier);
                         } else {
+                            newBracket[indexOfPlayedGame].winner = res.returnValues.winner;
                             this.setState({
                                 tournamentWinner: res.returnValues.winner
                             })
@@ -100,42 +153,13 @@ class Tournament extends Component {
     displayWinner() {
         this.setState({
             showWinner: true
-        })
+        });
     }
 
     distributeFunds() {
         this.props.contract.methods.distributeFunds().send(
             { from: this.props.contract.defaultAccount }
         );
-        console.log("********* this.props.contract")
-        console.log(this.props.contract)
-
-        this.props.contract.events.PrizeMoney((err, res) => {
-            if (!this.state.events[res.id]) {
-                this.handleEvent(res.id, () => {
-                    this.setState({
-                        prizeMoney: res.returnValues.prizeMoney
-                    });
-                });
-            }
-            console.log("********* this.state.prizeMoney")
-            console.log(this.state.prizeMoney)
-        });
-
-        this.props.contract.events.HostRake((err, res) => {
-            if (!this.state.events[res.id]) {
-                this.handleEvent(res.id, () => {
-                    this.setState({
-                        hostRake: res.returnValues.hostRake
-                    });
-                });
-            }
-
-            console.log("********** this.hostRake")
-            console.log(this.state.hostRake)
-        });
-
-        console.log("End of distribute funds()")
     }
 
     handleEvent(id, callback) {
@@ -156,7 +180,7 @@ class Tournament extends Component {
                 return (this.state.expOfTwo[i - 1]);
             }
         }
-        return (0);
+        return 0;
     }
 
 
@@ -171,12 +195,12 @@ class Tournament extends Component {
             inZerothTier = this.props.numberOfPlayers / 2;
         }
         let gameIndex = inZerothTier;
-        console.log("gameIndex n initial: ", gameIndex)
 
         for (let i = 0; i < inZerothTier; i++) {
             newBracket.push({
                 game: games[i],
                 tier: 1,
+                winner: '',
                 p1: '',
                 p2: ''
             });
@@ -195,9 +219,10 @@ class Tournament extends Component {
             --changingIndex;
             ++tierIndex;
         }
+
         this.setState({
             bracket: newBracket
-        });
+        }, this.checkGamesInBracket);
     }
 
     /*
@@ -208,8 +233,6 @@ class Tournament extends Component {
      *    current tier have finished being played
      */
     checkIncrementTier() {
-        console.log('----- checkIncrementTier()');
-        console.log(this.state.bracket);
         let incrementTier = true; // Assume we need to increment the tier
         for (let i = 0; i < this.state.bracket.length; i++) { // Iterate through the bracket
             if (this.state.bracket[i].tier === this.state.currentTier) { // Only look at the games in the current tier
@@ -227,12 +250,6 @@ class Tournament extends Component {
     }
 
     insertPlayers() {
-        console.log('----- insertPlayers()');
-        console.log(`CurrentTier: ${this.state.currentTier}`);
-        console.log(this.state.bracket);
-        console.log(this.state.stack);
-        console.log(this.state.winnerStack);
-
         let newBracket = this.state.bracket;
         for (let i = 0; i < newBracket.length; i++) {
             if (newBracket[i].tier === this.state.currentTier) {
@@ -257,10 +274,6 @@ class Tournament extends Component {
                     x2 = this.state.stack.pop();
                 }
 
-                console.log('---- insertPlayers()');
-                console.log(x1);
-                console.log(x2);
-
                 newBracket[i].p1 = this.props.registrants[x1];
                 newBracket[i].p2 = this.props.registrants[x2];
             }
@@ -274,7 +287,7 @@ class Tournament extends Component {
         if (this.state.bracket.length === 0) {
             return (<h4> ...loading </h4>)
         }
-        
+
         const antdWidth = 24;
         let numberOfTiers = this.state.bracket[this.state.bracket.length - 1].tier;
         let columnWidth = antdWidth / numberOfTiers;
@@ -282,7 +295,7 @@ class Tournament extends Component {
         return _.times(numberOfTiers, (tierIndex) => {
             return (
                 <Col key={tierIndex} span={columnWidth}>
-                    <h1> {tierIndex} </h1>
+                    <h3> {tierIndex + 1} </h3>
                     <Row>
                         {
                             this.state.bracket.map((game, gameIndex) => {
@@ -292,8 +305,7 @@ class Tournament extends Component {
                                             < Game
                                                 {...this.props}
                                                 game={game}
-                                                gamesInTier={game.tier}
-                                                index={parseInt(gameIndex)} />
+                                                index={gameIndex} />
                                         </div>
                                     )
                             })
@@ -305,24 +317,28 @@ class Tournament extends Component {
     }
 
     render() {
-        console.log("this.state.bracket")
-        console.log(this.state.bracket)
         return (
-            <div>
-                <Row>
+            <Row className='tournamentComponent'>
+                <Col span={24}>
                     {
                         this.renderBracket()
                     }
-                </Row>
+                </Col>
                 {this.state.showWinner &&
-                    <div>
-                        <h1>Winner is: {this.state.tournamentWinner} </h1>
-                        <button onClick={this.distributeFunds}> Distribute Funds </button>
-                        <h2> Total Prize Money is {this.state.prizeMoney} </h2>
-                        <h2> Total Host Rake is {this.state.hostRake} </h2>
-                    </div>
+                    <Col span={24} className="tournamentWinner">
+                        <Row>
+                            <Col span={16} >
+                                <h2>The Winner of the Tournament is: {this.state.tournamentWinner} </h2>
+                                <Button type="primary" disabled={this.props.tournamentEnd} onClick={this.distributeFunds}> Distribute Funds </Button>
+                            </Col>
+                            <Col span={8}>
+                                <h2> Total Prize Money is {toEther(this.props.web3, (this.props.totalMoneyCollected * ((100 - this.props.rakePercent) / 100)))} </h2>
+                                <h2> Total Host Rake is {toEther(this.props.web3, this.props.totalMoneyCollected / this.props.rakePercent)} </h2>
+                            </Col>
+                        </Row>
+                    </Col>
                 }
-            </div>
+            </Row>
         )
     }
 }

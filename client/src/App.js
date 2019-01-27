@@ -1,13 +1,20 @@
 import React, { Component } from 'react';
 import TournamentContract from './contracts/Tournament.json';
 import getWeb3 from './utils/getWeb3';
-import Register from './components/Register'
-import Registered from './components/Registered'
+
+
+// Components
+import Register from './components/Register';
+import Registered from './components/Registered';
+import Tournament from './components/Tournament';
+import Header from './components/Header';
+
+// Global Styles
 import './App.css';
 
 // Ant Design Library
-import { Layout, Row, Col } from 'antd';
 import 'antd/dist/antd.css'
+import { Layout, Row, Col, Button } from 'antd';
 
 const { Content } = Layout;
 class App extends Component {
@@ -21,17 +28,20 @@ class App extends Component {
       numberOfPlayers: 0, // init
       maxPlayers: 0, // init
       totalMoneyCollected: 0, //init
+      rakePercent: 0,
       registrationFee: 0, // init
       registrants: [], // init
-      events: [] // Prevent double firing events
+      events: [], // Prevent double firing events,
+      startTournament: false, // Hides/Displays the Tournament,
+      tournamentEnd: false // Indicates whether or not the tournament has finished
     };
 
-    this.initRegistrants = this.initRegistrants.bind(this);
+    this.initPastEvents = this.initPastEvents.bind(this);
     this.handleEvent = this.handleEvent.bind(this);
+    this.startTournament = this.startTournament.bind(this);
   }
 
   componentWillMount = async () => {
-    console.log('----- App:ComponentWillMount()');
     try {
       // Get network provider and web3 instance.
       const web3 = await getWeb3();
@@ -46,11 +56,9 @@ class App extends Component {
 
       const instance = new web3.eth.Contract(
         TournamentContract.abi,
-        deployedNetwork && deployedNetwork.address,
+        deployedNetwork && deployedNetwork.address
+        // '0x826543d7400e54139758f26C754DdC231607A455',
       );
-
-      console.log(instance);
-
       // Set web3, accounts, and contract to the state, and then proceed with an
       // example of interacting with the contract's methods.
       this.setState({ web3, accounts, contract: instance }, this.init);
@@ -59,21 +67,17 @@ class App extends Component {
       alert(
         `Failed to load web3, accounts, or contract. Check console for details.`,
       );
-      console.error(error);
     }
   };
 
   init = async () => {
-    console.log('----- init()');
     const { contract } = this.state;
-
-    this.initRegistrants();
 
     // Init the numberOfPlayers variable
     contract.methods.numberOfPlayers().call((err, res) => {
       this.setState({
         numberOfPlayers: res
-      });
+      }, this.initPastEvents);
     });
 
     // Init the maxPlayers variable
@@ -97,6 +101,12 @@ class App extends Component {
       });
     });
 
+    contract.methods.rakePercent().call((err, res) => {
+      this.setState({
+        rakePercent: res
+      });
+    });
+
 
     ////////////////////////////////////////////////////////////////////
 
@@ -104,37 +114,35 @@ class App extends Component {
 
     // Event listener for ConfirmRegistrant
     contract.events.ConfirmRegistrant((err, res) => {
-      if (err) {
-        // @TODO - Handle Error
-      } else {
-        if (!this.state.events[res.id]) {
-          let newRegistrants = this.state.registrants;
-          newRegistrants.push(res.returnValues.registrantAddress);
-          this.handleEvent(res.id);
-          this.setState({
-            registrants: newRegistrants,
-            numberOfPlayers: parseInt(this.state.numberOfPlayers) + 1
-          });
-        }
+      if (!this.state.events[res.id]) {
+        let newRegistrants = this.state.registrants;
+        newRegistrants.push(res.returnValues.registrantAddress);
+        this.handleEvent(res.id);
+        this.setState({
+          registrants: newRegistrants,
+          numberOfPlayers: parseInt(this.state.numberOfPlayers) + 1
+        });
       }
     });
 
     // Event Listener for MoneyCollected
     contract.events.MoneyCollected((err, res) => {
-      if (err) {
-        // @TODO - Handle Error
-      } else {
-        if (!this.state.events[res.id]) {
-          this.handleEvent(res.id);
-          this.setState({
-            totalMoneyCollected: res.returnValues.value
-          });
-        }
+      if (!this.state.events[res.id]) {
+        this.handleEvent(res.id);
+        this.setState({
+          totalMoneyCollected: res.returnValues.value
+        });
       }
     });
 
-    // @TODO - Event Listener for CreateGame
-    // @TODO - Event Listener for StartTournamnet
+    contract.events.TournamentEnd((err, res) => {
+      if (!this.state.events[res.id]) {
+        this.handleEvent(res.id);
+        this.setState({
+          tournamentEnd: true
+        });
+      }
+    });
   };
 
   handleEvent(id) {
@@ -145,22 +153,52 @@ class App extends Component {
     });
   }
 
-  initRegistrants = () => {
-    this.state.contract.getPastEvents('ConfirmRegistrant', {
+  initPastEvents = () => {
+    this.state.contract.getPastEvents('allEvents', {
       fromBlock: 0,
       toBlock: 'latest'
     }, (err, events) => {
-      let newRegistrants = this.state.registrants;
-      for (let i = 0; i < events.length; i++) {
-        newRegistrants.push(events[i].returnValues.registrantAddress);
-      }
-      this.setState({
-        registrants: newRegistrants,
+      events.map((event) => {
+        switch (event.event) {
+          case 'ConfirmRegistrant': {
+            let newRegistrants = this.state.registrants;
+            newRegistrants.push(event.returnValues.registrantAddress);
+            this.setState({
+              registrants: newRegistrants,
+            });
+            break;
+          }
+          case 'StartTournament': {
+            this.setState({
+              startTournament: true
+            });
+            break;
+          }
+          case 'TournamentEnd': {
+            this.setState({
+              tournamentEnd: true
+            });
+            break;
+          }
+          default:
+            break;
+        }
       });
     });
   }
 
-
+  startTournament = async () => {
+    if (this.state.numberOfPlayers === 0) {
+      this.setState({ reqText: 'Please register players!' });
+    } else if (parseInt(this.state.numberOfPlayers) === 1) {
+      this.setState({ reqText: 'Please register at least 1 more player!' });
+    } else {
+      await this.state.contract.methods.startTournament().send(
+        { from: this.state.contract.defaultAccount }
+      );
+      this.setState({ startTournament: true });
+    }
+  }
 
   render() {
     if (!this.state.web3) {
@@ -168,13 +206,32 @@ class App extends Component {
     }
     return (
       <div className='App'>
+        <Header {...this.state} />
         <Layout>
-          <Content>
+          <Content className='contentWrapper'>
             <Row>
-              <Col span={16}>
-                <Register {... this.state} />
+              <Col span={18}>
+                <Row>
+                  <Col span={24}>
+                    <h1>Smart Tournament Bracket System</h1>
+                  </Col>
+                  <Col span={24}>
+                    <Register {... this.state} />
+                  </Col>
+                  <Col span={24}>
+                    {this.state.startTournament ?
+                      <Tournament {... this.state} /> : 
+                      <div>
+                        <h4 id='tournaReq'>{this.state.reqText}</h4>
+                        <Button type='primary' onClick={this.startTournament} disabled={this.state.start} >
+                          Start Tournament
+                        </Button>
+                      </div>
+                    }
+                  </Col>
+                </Row>
               </Col>
-              <Col span={8}>
+              <Col span={6}>
                 <Registered {... this.state} />
               </Col>
             </Row>
