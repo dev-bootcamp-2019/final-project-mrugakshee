@@ -1,6 +1,6 @@
 # final-project-mrugakshee
 
-#Project Title
+# Project Title
 Tournament Bracket Generator with funds distribution
 
 # What does the project do?
